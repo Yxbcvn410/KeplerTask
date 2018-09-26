@@ -19,11 +19,11 @@ public class FrameUI extends JFrame {
 	int MethodID;
 
 	public FrameUI() {
-		this.setTitle("Kepler");
+		this.setTitle("Kepler v2.2");
 		size = 800;
 		accu = 30;
-		step = 1;
-		MethodID = 1;
+		step = 10;
+		MethodID = 2;
 		this.setLayout(new GridBagLayout());
 		this.setDefaultCloseOperation(EXIT_ON_CLOSE);
 		GridBagConstraints gc = new GridBagConstraints();
@@ -43,7 +43,7 @@ public class FrameUI extends JFrame {
 		this.add(posx_label, gc);
 
 		gc.gridx = 1;
-		posx_box = new JTextArea("");
+		posx_box = new JTextArea("100");
 		this.add(posx_box, gc);
 
 		gc.gridy = 1;
@@ -52,7 +52,7 @@ public class FrameUI extends JFrame {
 		this.add(posy_label, gc);
 
 		gc.gridx = 1;
-		posy_box = new JTextArea("");
+		posy_box = new JTextArea("0");
 		this.add(posy_box, gc);
 
 		gc.gridy = 2;
@@ -61,7 +61,7 @@ public class FrameUI extends JFrame {
 		this.add(velx_label, gc);
 
 		gc.gridx = 1;
-		velx_box = new JTextArea("");
+		velx_box = new JTextArea("0");
 		this.add(velx_box, gc);
 
 		gc.gridy = 3;
@@ -70,7 +70,7 @@ public class FrameUI extends JFrame {
 		this.add(vely_label, gc);
 
 		gc.gridx = 1;
-		vely_box = new JTextArea("");
+		vely_box = new JTextArea("0.4");
 		this.add(vely_box, gc);
 
 		gc.gridy = 4;
@@ -79,7 +79,7 @@ public class FrameUI extends JFrame {
 		this.add(mass_label, gc);
 
 		gc.gridx = 1;
-		mass_box = new JTextArea("");
+		mass_box = new JTextArea("500");
 		this.add(mass_box, gc);
 
 		gc.gridx = 0;
@@ -195,7 +195,7 @@ public class FrameUI extends JFrame {
 			canvas.setBackground(Color.white);
 			canvas.getGraphics().setColor(Color.black);
 			canvas.getGraphics().fillOval(size / 2 - 5, size / 2 - 5, 10, 10);
-			canvas.getGraphics().fillOval(size / 2 + Position.x - 2, size / 2 - Position.y - 2, 4, 4);
+			canvas.getGraphics().fillOval(size / 2 + Position.x - 2, size / 2 - Position.y - 2,5, 5);
 			canvas.getGraphics().drawLine(size / 2 + Position.x, size / 2 - Position.y,
 					size / 2 + Position.x + (int) (Speed.X.doubleValue() * 10),
 					size / 2 - Position.y - (int) (Speed.Y.doubleValue() * 10));
@@ -210,7 +210,7 @@ public class FrameUI extends JFrame {
 		JTextArea accu = new JTextArea();
 		accu.setText(String.valueOf(this.accu));
 		JComboBox<String> meth = new JComboBox<String>(
-				new String[] { "Euler", "Euler-Cauchy", "Runge-Kutta 2", "Runge-Kutta 4" });
+				new String[] { "Predictor", "Predictor-Corrector", "Runge-Kutta 4" });
 		meth.setSelectedIndex(MethodID);
 		final JComponent[] inputs = new JComponent[] { new JLabel("Extrapolation step"), step,
 				new JLabel("Grid accuracy"), accu, new JLabel("Extrapolation method"), meth };

@@ -9,15 +9,17 @@ private BigDecimal h;
 private BigDecimal os;
 private int Accu;
 private int MethodID;
+private EasyModel em;
 	public Model(Vector position, Vector speed, BigDecimal mass) {
 		Position=position;
-		Speed=speed;
+		Speed=speed.clone();
 		Speed.Multiply(new BigDecimal(1000));
 		Mass=mass;
 		h=new BigDecimal(1);
 		Accu=50;
 		MethodID=2;
 		os = new BigDecimal(1).divide(new BigDecimal(6), 30, BigDecimal.ROUND_DOWN);
+		em=new EasyModel(position, speed, mass);
 	}
 	
 	// Velocity in m/s
@@ -27,11 +29,14 @@ private int MethodID;
 	public void SetStep(BigDecimal a)
 	{
 		h=a;
+		em.SetStep(a);
 	}
 	
 	public void SetAccuracy(int a)
 	{
 		Accu=a;
+		os = new BigDecimal(1).divide(new BigDecimal(6), a, BigDecimal.ROUND_DOWN);
+		em.SetAccuracy(a);
 	}
 	
 	public void SetMethod(int id)
@@ -47,9 +52,7 @@ private int MethodID;
 		else if(MethodID==1)
 			v = EulerCauchy();
 		else if(MethodID==2)
-			v=RungeKutta2();
-		else if(MethodID==3)
-			v=RungeKutta4();
+			v=em.PerformStep();
 		Position = new Vector(Position.X.setScale(Accu, BigDecimal.ROUND_DOWN), Position.Y.setScale(Accu, BigDecimal.ROUND_DOWN));
 		Speed = new Vector(Speed.X.setScale(Accu, BigDecimal.ROUND_DOWN), Speed.Y.setScale(Accu, BigDecimal.ROUND_DOWN));
 		return v;
@@ -58,7 +61,10 @@ private int MethodID;
 	private Vector Euler()
 	{
 		Vector acc = GetAccel(Position.clone());
-		Position = GetPosition(Position.clone(), Speed.clone(), acc, BigDecimal.ONE);
+		Vector sp = acc.clone();
+		sp.Multiply(h.multiply(new BigDecimal("0.5")));
+		sp.Apply(Speed.clone());
+		Position = GetPosition(Position.clone(), sp.clone(), BigDecimal.ONE);
 		Speed = GetVelocity(Speed.clone(), acc, BigDecimal.ONE);
 		return Position;
 	}
@@ -66,54 +72,28 @@ private int MethodID;
 	private Vector EulerCauchy()
 	{
 		Vector acc0 = GetAccel(Position.clone());
-		Vector x1 = GetPosition(Position.clone(), Speed.clone(), acc0, BigDecimal.ONE);
+		Vector sp0 = acc0.clone();
+		sp0.Multiply(h.multiply(new BigDecimal("0.5")));
+		sp0.Apply(Speed.clone());
+		Vector x1 = GetPosition(Position.clone(), sp0.clone(), BigDecimal.ONE);
 		Vector acc1 = GetAccel(x1.clone());
 		Vector acc = acc0.clone();
 		acc.Apply(acc1.clone());
-		acc.Multiply(new BigDecimal(0.5));
-		Position = GetPosition(Position.clone(), Speed.clone(), acc, BigDecimal.ONE);
+		acc.Multiply(new BigDecimal("0.5"));
+		Vector sp = acc.clone();
+		sp.Multiply(h.multiply(new BigDecimal("0.5")));
+		sp.Apply(Speed.clone());
+		Position = GetPosition(Position.clone(), sp.clone(), BigDecimal.ONE);
 		Speed = GetVelocity(Speed.clone(), acc, BigDecimal.ONE);
 		return Position;
 	}
-	
-	private Vector RungeKutta2()
-	{
-		Vector acc0 = GetAccel(Position.clone());
-		Vector x1 = GetPosition(Position.clone(), Speed.clone(), acc0, new BigDecimal(0.5));
-		Vector acc = GetAccel(x1.clone());
-		Position = GetPosition(Position.clone(), Speed.clone(), acc, BigDecimal.ONE);
-		Speed = GetVelocity(Speed.clone(), acc, BigDecimal.ONE);
-		return Position;
-	}
-	
-	private Vector RungeKutta4()
-	{
-		Vector acc0 = GetAccel(Position.clone());
-		Vector x1 = GetPosition(Position.clone(), Speed.clone(), acc0.clone(), new BigDecimal(0.5));
-		Vector acc1 = GetAccel(x1.clone());
-		Vector x2 = GetPosition(Position.clone(), Speed.clone(), acc1.clone(), new BigDecimal(0.5));
-		Vector acc2 = GetAccel(x2.clone());
-		Vector x3 = GetPosition(Position.clone(), Speed.clone(), acc2.clone(), BigDecimal.ONE);
-		Vector acc3 = GetAccel(x3.clone());
-		acc1.Multiply(new BigDecimal(2));
-		acc2.Multiply(new BigDecimal(2));
-		Vector acc = acc0.clone();
-		acc.Apply(acc1);
-		acc.Apply(acc2);
-		acc.Apply(acc3);
-		acc.Multiply(os);
-		
-		Position = GetPosition(Position.clone(), Speed.clone(), acc, BigDecimal.ONE);
-		Speed = GetVelocity(Speed.clone(), acc, BigDecimal.ONE);
-		return Position;
-	}
-	
+
 	private Vector GetAccel(Vector pos)
 	{
 		BigDecimal r = pos.X.multiply(pos.X);
 		r=r.add(pos.Y.multiply(pos.Y));
 		r=sqrt(r, Accu);
-		BigDecimal a = Mass.multiply(new BigDecimal(0.667408));
+		BigDecimal a = Mass.multiply(new BigDecimal("0.667408313131313131313131313131313131313131313131313131").setScale(Accu, RoundingMode.FLOOR));
 		a=a.divide(r, BigDecimal.ROUND_DOWN);
 		a=a.divide(r, BigDecimal.ROUND_DOWN);
 		Vector va = new Vector(pos.X, pos.Y);
@@ -122,12 +102,10 @@ private int MethodID;
 		return va;//m/s^2
 	}
 	
-	private Vector GetPosition(Vector pos, Vector st_vel, Vector acc, BigDecimal part)
+	private Vector GetPosition(Vector pos, Vector st_vel, BigDecimal part)
 	{
-		Vector midvel = acc.clone();
-		midvel.Multiply(h.multiply(part.multiply(new BigDecimal(0.5))));
-		midvel.Apply(st_vel);
-		midvel.Multiply(h.multiply(new BigDecimal(0.000001)));
+		Vector midvel = st_vel.clone();
+		midvel.Multiply(h.multiply(new BigDecimal("0.000001")));
 		pos.Apply(midvel);
 		return pos;
 	}
