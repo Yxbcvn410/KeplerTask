@@ -43,7 +43,7 @@ public class FrameUI extends JFrame {
 		this.add(posx_label, gc);
 
 		gc.gridx = 1;
-		posx_box = new JTextArea("100");
+		posx_box = new JTextArea("");
 		this.add(posx_box, gc);
 
 		gc.gridy = 1;
@@ -52,7 +52,7 @@ public class FrameUI extends JFrame {
 		this.add(posy_label, gc);
 
 		gc.gridx = 1;
-		posy_box = new JTextArea("0");
+		posy_box = new JTextArea("");
 		this.add(posy_box, gc);
 
 		gc.gridy = 2;
@@ -61,7 +61,7 @@ public class FrameUI extends JFrame {
 		this.add(velx_label, gc);
 
 		gc.gridx = 1;
-		velx_box = new JTextArea("0");
+		velx_box = new JTextArea("");
 		this.add(velx_box, gc);
 
 		gc.gridy = 3;
@@ -70,7 +70,7 @@ public class FrameUI extends JFrame {
 		this.add(vely_label, gc);
 
 		gc.gridx = 1;
-		vely_box = new JTextArea("0.4");
+		vely_box = new JTextArea("");
 		this.add(vely_box, gc);
 
 		gc.gridy = 4;
@@ -79,12 +79,12 @@ public class FrameUI extends JFrame {
 		this.add(mass_label, gc);
 
 		gc.gridx = 1;
-		mass_box = new JTextArea("500");
+		mass_box = new JTextArea("");
 		this.add(mass_box, gc);
 
 		gc.gridx = 0;
 		gc.gridy = 5;
-		JButton pr_button = new JButton("Preview");
+		JButton pr_button = new JButton("Preview launch params");
 		pr_button.addActionListener(new ActionListener() {
 
 			@Override
@@ -143,6 +143,7 @@ public class FrameUI extends JFrame {
 		gc.gridy = 7;
 		gc.gridx = 0;
 		gc.gridheight = 5;
+		gc.fill=GridBagConstraints.NONE;
 		canvas = new Canvas();
 		canvas.setSize(size, size);
 		this.add(canvas, gc);
