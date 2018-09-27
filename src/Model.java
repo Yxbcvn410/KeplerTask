@@ -1,42 +1,42 @@
-import java.math.BigDecimal;
-import java.math.RoundingMode;
+import java.math.*;
 
 public class Model {
-private Vector Position;
-private Vector Speed;
-private BigDecimal Mass;
-private BigDecimal h;
-private BigDecimal os;
-private int Accu;
-private int MethodID;
-private EasyModel em;
+	private BigDecimal PositionX;
+	private BigDecimal PositionY;
+	private BigDecimal SpeedX;
+	private BigDecimal SpeedY;
+	private BigDecimal Mass;
+	private BigDecimal h;
+	private BigDecimal os;
+	private int Accu;
+	private int MethodID;
+	public long CircCount;
+
 	public Model(Vector position, Vector speed, BigDecimal mass) {
-		Position=position;
-		Speed=speed.clone();
-		Speed.Multiply(new BigDecimal(1000));
-		Mass=mass;
-		h=new BigDecimal(1);
-		Accu=50;
+		speed.Multiply(new BigDecimal(1000));
+		PositionX = position.X;
+		PositionY = position.Y;
+		SpeedX = speed.X;
+		SpeedY = speed.Y;
+		Mass = mass;
+		h = new BigDecimal(1);
+		Accu = 50;
 		MethodID=2;
-		os = new BigDecimal(1).divide(new BigDecimal(6), 30, BigDecimal.ROUND_DOWN);
-		em=new EasyModel(position, speed, mass);
+		os = new BigDecimal(1).divide(new BigDecimal(6), 30, RoundingMode.FLOOR);
+		CircCount=0;
 	}
-	
+
 	// Velocity in m/s
 	// Acceleration in m/s^2
 	// Distance in km*1000
-	
-	public void SetStep(BigDecimal a)
-	{
-		h=a;
-		em.SetStep(a);
+
+	public void SetStep(BigDecimal a) {
+		h = a;
 	}
-	
-	public void SetAccuracy(int a)
-	{
-		Accu=a;
-		os = new BigDecimal(1).divide(new BigDecimal(6), a, BigDecimal.ROUND_DOWN);
-		em.SetAccuracy(a);
+
+	public void SetAccuracy(int a) {
+		Accu = a;
+		os = new BigDecimal(1).divide(new BigDecimal(6), a, RoundingMode.FLOOR);
 	}
 	
 	public void SetMethod(int id)
@@ -46,92 +46,222 @@ private EasyModel em;
 	
 	public Vector PerformStep()
 	{
-		Vector v = EulerCauchy();
+		Vector v = null;
+		boolean b = false;
+		if(this.PositionY.compareTo(BigDecimal.ZERO)==-1)
+			b=true;
 		if(MethodID==0)
-			v = Euler();
+			v=Predictor();
 		else if(MethodID==1)
-			v = EulerCauchy();
+			v=PredictorCorrector();
 		else if(MethodID==2)
-			v=em.PerformStep();
-		Position = new Vector(Position.X.setScale(Accu, BigDecimal.ROUND_DOWN), Position.Y.setScale(Accu, BigDecimal.ROUND_DOWN));
-		Speed = new Vector(Speed.X.setScale(Accu, BigDecimal.ROUND_DOWN), Speed.Y.setScale(Accu, BigDecimal.ROUND_DOWN));
+			v=RungeKutta4();
+		if(this.PositionY.compareTo(BigDecimal.ZERO)!=-1&&b)
+			CircCount++;
 		return v;
 	}
 	
-	private Vector Euler()
+	public Vector Predictor()
 	{
-		Vector acc = GetAccel(Position.clone());
-		Vector sp = acc.clone();
-		sp.Multiply(h.multiply(new BigDecimal("0.5")));
-		sp.Apply(Speed.clone());
-		Position = GetPosition(Position.clone(), sp.clone(), BigDecimal.ONE);
-		Speed = GetVelocity(Speed.clone(), acc, BigDecimal.ONE);
-		return Position;
-	}
-	
-	private Vector EulerCauchy()
-	{
-		Vector acc0 = GetAccel(Position.clone());
-		Vector sp0 = acc0.clone();
-		sp0.Multiply(h.multiply(new BigDecimal("0.5")));
-		sp0.Apply(Speed.clone());
-		Vector x1 = GetPosition(Position.clone(), sp0.clone(), BigDecimal.ONE);
-		Vector acc1 = GetAccel(x1.clone());
-		Vector acc = acc0.clone();
-		acc.Apply(acc1.clone());
-		acc.Multiply(new BigDecimal("0.5"));
-		Vector sp = acc.clone();
-		sp.Multiply(h.multiply(new BigDecimal("0.5")));
-		sp.Apply(Speed.clone());
-		Position = GetPosition(Position.clone(), sp.clone(), BigDecimal.ONE);
-		Speed = GetVelocity(Speed.clone(), acc, BigDecimal.ONE);
-		return Position;
+		BigDecimal PosXdif = GetPosXdif(PositionX, PositionY, SpeedX, SpeedY);
+		BigDecimal PosYdif = GetPosYdif(PositionX, PositionY, SpeedX, SpeedY);
+		BigDecimal VelXdif = GetVelXdif(PositionX, PositionY, SpeedX, SpeedY);
+		BigDecimal VelYdif = GetVelYdif(PositionX, PositionY, SpeedX, SpeedY);
+		
+		PositionX=PositionX.add(PosXdif.multiply(h));
+		PositionX=PositionX.setScale(Accu, RoundingMode.FLOOR);
+		PositionY=PositionY.add(PosYdif.multiply(h));
+		PositionY=PositionY.setScale(Accu, RoundingMode.FLOOR);
+		SpeedX=SpeedX.add(VelXdif.multiply(h));
+		SpeedX=SpeedX.setScale(Accu, RoundingMode.FLOOR);
+		SpeedY=SpeedY.add(VelYdif.multiply(h));
+		SpeedY=SpeedY.setScale(Accu, RoundingMode.FLOOR);
+
+		return new Vector(PositionX, PositionY);
 	}
 
-	private Vector GetAccel(Vector pos)
-	{
+	public Vector PredictorCorrector() {
+		BigDecimal PosXdif1 = GetPosXdif(PositionX, PositionY, SpeedX, SpeedY);
+		BigDecimal PosYdif1 = GetPosYdif(PositionX, PositionY, SpeedX, SpeedY);
+		BigDecimal VelXdif1 = GetVelXdif(PositionX, PositionY, SpeedX, SpeedY);
+		BigDecimal VelYdif1 = GetVelYdif(PositionX, PositionY, SpeedX, SpeedY);
+		
+		BigDecimal PosXdif2 = GetPosXdif(PositionX.add(PosXdif1.multiply(h)),
+				PositionY.add(PosYdif1.multiply(h)),
+				SpeedX.add(VelXdif1.multiply(h)),
+				SpeedY.add(VelYdif1.multiply(h)));
+		BigDecimal PosYdif2 = GetPosYdif(PositionX.add(PosXdif1.multiply(h)),
+				PositionY.add(PosYdif1.multiply(h)),
+				SpeedX.add(VelXdif1.multiply(h)),
+				SpeedY.add(VelYdif1.multiply(h)));
+		BigDecimal VelXdif2 = GetVelXdif(PositionX.add(PosXdif1.multiply(h)),
+				PositionY.add(PosYdif1.multiply(h)),
+				SpeedX.add(VelXdif1.multiply(h)),
+				SpeedY.add(VelYdif1.multiply(h)));
+		BigDecimal VelYdif2 = GetVelYdif(PositionX.add(PosXdif1.multiply(h)),
+				PositionY.add(PosYdif1.multiply(h)),
+				SpeedX.add(VelXdif1.multiply(h)),
+				SpeedY.add(VelYdif1.multiply(h)));
+		
+		BigDecimal PosXdif = new BigDecimal(PosXdif1.toString());
+		PosXdif=PosXdif.add(PosXdif2);
+		PosXdif=PosXdif.multiply(new BigDecimal("0.5"));
+		
+		BigDecimal PosYdif = new BigDecimal(PosYdif1.toString());
+		PosYdif=PosYdif.add(PosYdif2);
+		PosYdif=PosYdif.multiply(new BigDecimal("0.5"));
+		
+		BigDecimal VelXdif = new BigDecimal(VelXdif1.toString());
+		VelXdif=VelXdif.add(VelXdif2);
+		VelXdif=VelXdif.multiply(new BigDecimal("0.5"));
+		
+		BigDecimal VelYdif = new BigDecimal(VelYdif1.toString());
+		VelYdif=VelYdif.add(VelYdif2);
+		VelYdif=VelYdif.multiply(new BigDecimal("0.5"));
+		
+		PositionX=PositionX.add(PosXdif.multiply(h));
+		PositionX=PositionX.setScale(Accu, RoundingMode.FLOOR);
+		PositionY=PositionY.add(PosYdif.multiply(h));
+		PositionY=PositionY.setScale(Accu, RoundingMode.FLOOR);
+		SpeedX=SpeedX.add(VelXdif.multiply(h));
+		SpeedX=SpeedX.setScale(Accu, RoundingMode.FLOOR);
+		SpeedY=SpeedY.add(VelYdif.multiply(h));
+		SpeedY=SpeedY.setScale(Accu, RoundingMode.FLOOR);
+
+		return new Vector(PositionX, PositionY);
+	}
+	
+	public Vector RungeKutta4() {
+		BigDecimal PosXdif1 = GetPosXdif(PositionX, PositionY, SpeedX, SpeedY);
+		BigDecimal PosYdif1 = GetPosYdif(PositionX, PositionY, SpeedX, SpeedY);
+		BigDecimal VelXdif1 = GetVelXdif(PositionX, PositionY, SpeedX, SpeedY);
+		BigDecimal VelYdif1 = GetVelYdif(PositionX, PositionY, SpeedX, SpeedY);
+
+		BigDecimal PosXdif2 = GetPosXdif(PositionX.add(PosXdif1.multiply(h).multiply(new BigDecimal("0.5"))),
+				PositionY.add(PosYdif1.multiply(h).multiply(new BigDecimal("0.5"))),
+				SpeedX.add(VelXdif1.multiply(h).multiply(new BigDecimal("0.5"))),
+				SpeedY.add(VelYdif1.multiply(h).multiply(new BigDecimal("0.5"))));
+		BigDecimal PosYdif2 = GetPosYdif(PositionX.add(PosXdif1.multiply(h).multiply(new BigDecimal("0.5"))),
+				PositionY.add(PosYdif1.multiply(h).multiply(new BigDecimal("0.5"))),
+				SpeedX.add(VelXdif1.multiply(h).multiply(new BigDecimal("0.5"))),
+				SpeedY.add(VelYdif1.multiply(h).multiply(new BigDecimal("0.5"))));
+		BigDecimal VelXdif2 = GetVelXdif(PositionX.add(PosXdif1.multiply(h).multiply(new BigDecimal("0.5"))),
+				PositionY.add(PosYdif1.multiply(h).multiply(new BigDecimal("0.5"))),
+				SpeedX.add(VelXdif1.multiply(h).multiply(new BigDecimal("0.5"))),
+				SpeedY.add(VelYdif1.multiply(h).multiply(new BigDecimal("0.5"))));
+		BigDecimal VelYdif2 = GetVelYdif(PositionX.add(PosXdif1.multiply(h).multiply(new BigDecimal("0.5"))),
+				PositionY.add(PosYdif1.multiply(h).multiply(new BigDecimal("0.5"))),
+				SpeedX.add(VelXdif1.multiply(h).multiply(new BigDecimal("0.5"))),
+				SpeedY.add(VelYdif1.multiply(h).multiply(new BigDecimal("0.5"))));
+
+		BigDecimal PosXdif3 = GetPosXdif(PositionX.add(PosXdif2.multiply(h).multiply(new BigDecimal("0.5"))),
+				PositionY.add(PosYdif2.multiply(h).multiply(new BigDecimal("0.5"))),
+				SpeedX.add(VelXdif2.multiply(h).multiply(new BigDecimal("0.5"))),
+				SpeedY.add(VelYdif2.multiply(h).multiply(new BigDecimal("0.5"))));
+		BigDecimal PosYdif3 = GetPosYdif(PositionX.add(PosXdif2.multiply(h).multiply(new BigDecimal("0.5"))),
+				PositionY.add(PosYdif2.multiply(h).multiply(new BigDecimal("0.5"))),
+				SpeedX.add(VelXdif2.multiply(h).multiply(new BigDecimal("0.5"))),
+				SpeedY.add(VelYdif2.multiply(h).multiply(new BigDecimal("0.5"))));
+		BigDecimal VelXdif3 = GetVelXdif(PositionX.add(PosXdif2.multiply(h).multiply(new BigDecimal("0.5"))),
+				PositionY.add(PosYdif2.multiply(h).multiply(new BigDecimal("0.5"))),
+				SpeedX.add(VelXdif2.multiply(h).multiply(new BigDecimal("0.5"))),
+				SpeedY.add(VelYdif2.multiply(h).multiply(new BigDecimal("0.5"))));
+		BigDecimal VelYdif3 = GetVelYdif(PositionX.add(PosXdif2.multiply(h).multiply(new BigDecimal("0.5"))),
+				PositionY.add(PosYdif2.multiply(h).multiply(new BigDecimal("0.5"))),
+				SpeedX.add(VelXdif2.multiply(h).multiply(new BigDecimal("0.5"))),
+				SpeedY.add(VelYdif2.multiply(h).multiply(new BigDecimal("0.5"))));
+
+		BigDecimal PosXdif4 = GetPosXdif(PositionX.add(PosXdif3.multiply(h)), PositionY.add(PosYdif3.multiply(h)),
+				SpeedX.add(VelXdif3.multiply(h)), SpeedY.add(VelYdif3.multiply(h)));
+		BigDecimal PosYdif4 = GetPosYdif(PositionX.add(PosXdif3.multiply(h)), PositionY.add(PosYdif3.multiply(h)),
+				SpeedX.add(VelXdif3.multiply(h)), SpeedY.add(VelYdif3.multiply(h)));
+		BigDecimal VelXdif4 = GetVelXdif(PositionX.add(PosXdif3.multiply(h)), PositionY.add(PosYdif3.multiply(h)),
+				SpeedX.add(VelXdif3.multiply(h)), SpeedY.add(VelYdif3.multiply(h)));
+		BigDecimal VelYdif4 = GetVelYdif(PositionX.add(PosXdif3.multiply(h)), PositionY.add(PosYdif3.multiply(h)),
+				SpeedX.add(VelXdif3.multiply(h)), SpeedY.add(VelYdif3.multiply(h)));
+
+		BigDecimal PosXdif = new BigDecimal(PosXdif1.toString());
+		PosXdif=PosXdif.add(PosXdif2.multiply(new BigDecimal(2)));
+		PosXdif=PosXdif.add(PosXdif3.multiply(new BigDecimal(2)));
+		PosXdif=PosXdif.add(PosXdif4);
+		PosXdif=PosXdif.multiply(os);
+		
+
+		BigDecimal PosYdif = new BigDecimal(PosYdif1.toString());
+		PosYdif=PosYdif.add(PosYdif2.multiply(new BigDecimal(2)));
+		PosYdif=PosYdif.add(PosYdif3.multiply(new BigDecimal(2)));
+		PosYdif=PosYdif.add(PosYdif4);
+		PosYdif=PosYdif.multiply(os);
+		
+
+		BigDecimal VelXdif = new BigDecimal(VelXdif1.toString());
+		VelXdif=VelXdif.add(VelXdif2.multiply(new BigDecimal(2)));
+		VelXdif=VelXdif.add(VelXdif3.multiply(new BigDecimal(2)));
+		VelXdif=VelXdif.add(VelXdif4);
+		VelXdif=VelXdif.multiply(os);
+		
+
+		BigDecimal VelYdif = new BigDecimal(VelYdif1.toString());
+		VelYdif=VelYdif.add(VelYdif2.multiply(new BigDecimal(2)));
+		VelYdif=VelYdif.add(VelYdif3.multiply(new BigDecimal(2)));
+		VelYdif=VelYdif.add(VelYdif4);
+		VelYdif=VelYdif.multiply(os);
+		
+		PositionX=PositionX.add(PosXdif.multiply(h));
+		PositionX=PositionX.setScale(Accu, RoundingMode.FLOOR);
+		PositionY=PositionY.add(PosYdif.multiply(h));
+		PositionY=PositionY.setScale(Accu, RoundingMode.FLOOR);
+		SpeedX=SpeedX.add(VelXdif.multiply(h));
+		SpeedX=SpeedX.setScale(Accu, RoundingMode.FLOOR);
+		SpeedY=SpeedY.add(VelYdif.multiply(h));
+		SpeedY=SpeedY.setScale(Accu, RoundingMode.FLOOR);
+
+		return new Vector(PositionX, PositionY);
+	}
+
+	BigDecimal GetPosXdif(BigDecimal posx, BigDecimal posy, BigDecimal velx, BigDecimal vely) {
+		return velx.multiply(new BigDecimal("0.000001"));
+	}
+
+	BigDecimal GetPosYdif(BigDecimal posx, BigDecimal posy, BigDecimal velx, BigDecimal vely) {
+		return vely.multiply(new BigDecimal("0.000001"));
+	}
+
+	BigDecimal GetVelXdif(BigDecimal posx, BigDecimal posy, BigDecimal velx, BigDecimal vely) {
+		return GetAccel(new Vector(posx, posy)).X;
+	}
+
+	BigDecimal GetVelYdif(BigDecimal posx, BigDecimal posy, BigDecimal velx, BigDecimal vely) {
+		return GetAccel(new Vector(posx, posy)).Y;
+	}
+
+	private Vector GetAccel(Vector pos) {
 		BigDecimal r = pos.X.multiply(pos.X);
-		r=r.add(pos.Y.multiply(pos.Y));
-		r=sqrt(r, Accu);
+		r = r.add(pos.Y.multiply(pos.Y));
+		r = sqrt(r, Accu);
 		BigDecimal a = Mass.multiply(new BigDecimal("0.667408313131313131313131313131313131313131313131313131").setScale(Accu, RoundingMode.FLOOR));
-		a=a.divide(r, BigDecimal.ROUND_DOWN);
-		a=a.divide(r, BigDecimal.ROUND_DOWN);
+		a = a.divide(r, RoundingMode.FLOOR);
+		a = a.divide(r, RoundingMode.FLOOR);
 		Vector va = new Vector(pos.X, pos.Y);
-		va.Multiply(a.divide(r, BigDecimal.ROUND_DOWN));
+		va.Multiply(a.divide(r, RoundingMode.FLOOR));
 		va.Multiply(new BigDecimal(-1));
-		return va;//m/s^2
+		return va;// m/s^2
 	}
-	
-	private Vector GetPosition(Vector pos, Vector st_vel, BigDecimal part)
-	{
-		Vector midvel = st_vel.clone();
-		midvel.Multiply(h.multiply(new BigDecimal("0.000001")));
-		pos.Apply(midvel);
-		return pos;
-	}
-	
-	private Vector GetVelocity(Vector st_vel, Vector acc, BigDecimal part)
-	{
-		Vector fvel = acc.clone();
-		fvel.Multiply(h.multiply(part));
-		fvel.Apply(st_vel);
-		return fvel;
-	}
-	
-	public static BigDecimal sqrt(BigDecimal in, int scale){
-	    BigDecimal sqrt = new BigDecimal(1);
-	    sqrt.setScale(scale + 3, RoundingMode.FLOOR);
-	    BigDecimal store = new BigDecimal(in.toString());
-	    boolean first = true;
-	    do{
-	        if (!first){
-	            store = new BigDecimal(sqrt.toString());
-	        }
-	        else first = false;
-	        store.setScale(scale + 3, RoundingMode.FLOOR);
-	        sqrt = in.divide(store, scale + 3, RoundingMode.FLOOR).add(store).divide(
-	                BigDecimal.valueOf(2), scale + 3, RoundingMode.FLOOR);
-	    }while (!store.equals(sqrt));
-	    return sqrt.setScale(scale, RoundingMode.FLOOR);
+
+	public static BigDecimal sqrt(BigDecimal in, int scale) {
+		BigDecimal sqrt = new BigDecimal(1);
+		sqrt.setScale(scale + 3, RoundingMode.FLOOR);
+		BigDecimal store = new BigDecimal(in.toString());
+		boolean first = true;
+		do {
+			if (!first) {
+				store = new BigDecimal(sqrt.toString());
+			} else
+				first = false;
+			store.setScale(scale + 3, RoundingMode.FLOOR);
+			sqrt = in.divide(store, scale + 3, RoundingMode.FLOOR).add(store).divide(BigDecimal.valueOf(2), scale + 3,
+					RoundingMode.FLOOR);
+		} while (!store.equals(sqrt));
+		return sqrt.setScale(scale, RoundingMode.FLOOR);
 	}
 }

@@ -19,7 +19,7 @@ public class FrameUI extends JFrame {
 	int MethodID;
 
 	public FrameUI() {
-		this.setTitle("Kepler v2.2");
+		this.setTitle("Kepler v2.3");
 		size = 800;
 		accu = 30;
 		step = 10;
@@ -128,6 +128,7 @@ public class FrameUI extends JFrame {
 					flag = false;
 					canvas.getGraphics().clearRect(0, 0, size, size);
 					st_button.setText("Start emulation");
+					ref();
 					return;
 				}				
 				Thread th = new Thread() {
@@ -148,6 +149,11 @@ public class FrameUI extends JFrame {
 		canvas.setSize(size, size);
 		this.add(canvas, gc);
 		this.pack();
+	}
+	
+	void ref()
+	{
+		this.setTitle("Kepler 2.3");
 	}
 
 	void OnEmulationStarted() {
@@ -176,6 +182,7 @@ public class FrameUI extends JFrame {
 				Position = model.PerformStep();
 				if (i > k) {
 					canvas.getGraphics().fillOval(size / 2 + Position.x, size / 2 - Position.y, 1, 1);
+					this.setTitle("Kepler 2.3 [loop count = "+model.CircCount+" ]");
 					i = 1;
 				}
 				i++;
